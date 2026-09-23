@@ -1,0 +1,132 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == 'chrisaka141@gmail.com' && (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'google.com')) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Entity Validators
+    function isValidUser(data) {
+      return data.id is string &&
+        data.email is string && data.email.size() <= 120 &&
+        data.role in ['customer', 'admin'] &&
+        (!('name' in data) || (data.name is string && data.name.size() <= 100)) &&
+        (!('phone' in data) || (data.phone is string && data.phone.size() <= 30));
+    }
+
+    function isValidOrder(data) {
+      return data.orderNumber is string && data.orderNumber.size() <= 50 &&
+        data.customerName is string && data.customerName.size() <= 100 &&
+        data.customerPhone is string && data.customerPhone.size() <= 30 &&
+        data.department in ['generators', 'ac', 'sumo'] &&
+        data.issueCategory in ['servicing', 'overhauling', 'repair', 'installation'] &&
+        data.deliveryMode in ['home_service', 'pickup_return', 'workshop_dropoff'] &&
+        data.status in ['request_received', 'picked_up', 'diagnostic', 'in_repair', 'quality_tested', 'ready_delivered'] &&
+        data.totalAmount is number && data.totalAmount >= 0 &&
+        data.paymentStatus in ['unpaid', 'paid_online', 'pay_on_arrival'] &&
+        (!('issueDescription' in data) || (data.issueDescription is string && data.issueDescription.size() <= 2000));
+    }
+
+    function isValidProduct(data) {
+      return data.name is string && data.name.size() <= 150 &&
+        data.department in ['generators', 'ac', 'sumo'] &&
+        data.condition in ['brand_new', 'fairly_used'] &&
+        data.price is number && data.price >= 0 &&
+        data.inStock is bool;
+    }
+
+    function isValidSellRequest(data) {
+      return data.requestNumber is string && data.requestNumber.size() <= 50 &&
+        data.customerName is string && data.customerName.size() <= 100 &&
+        data.customerPhone is string && data.customerPhone.size() <= 30 &&
+        data.department in ['generators', 'ac', 'sumo'] &&
+        data.brandModel is string && data.brandModel.size() <= 100 &&
+        data.workingCondition in ['not_working', 'working_with_faults', 'working_good'] &&
+        data.status in ['pending_review', 'inspected', 'offer_sent', 'accepted', 'declined'] &&
+        (!('issueDescription' in data) || (data.issueDescription is string && data.issueDescription.size() <= 2000));
+    }
+
+    function isValidSettings(data) {
+      return data.companyName is string && data.companyName.size() <= 100 &&
+        data.contactPhone is string && data.contactPhone.size() <= 40 &&
+        data.workshopAddress is string && data.workshopAddress.size() <= 250 &&
+        data.workingHours is string && data.workingHours.size() <= 60 &&
+        data.operatingSince is number;
+    }
+
+    // Admins Collection
+    match /admins/{adminUid} {
+      allow get: if isSignedIn() && (request.auth.uid == adminUid || isAdmin());
+      allow list: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming());
+      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin()) && isValidUser(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // Repair Orders Collection
+    match /orders/{orderId} {
+      allow get: if true;
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isValidOrder(incoming());
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Products (Marketplace Catalog) Collection
+    match /products/{productId} {
+      allow get, list: if true;
+      allow create: if isAdmin() && isValidProduct(incoming());
+      allow update: if isAdmin() && isValidProduct(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // Sell Equipment Requests Collection
+    match /sellRequests/{requestId} {
+      allow get: if true;
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isValidSellRequest(incoming());
+      allow update: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // Business Settings Collection
+    match /settings/{settingId} {
+      allow get, list: if true;
+      allow create, update: if isAdmin() && isValidSettings(incoming());
+      allow delete: if isAdmin();
+    }
+  }
+}

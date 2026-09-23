@@ -1,0 +1,147 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Registered customer or engineering staff profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Auth UID" },
+        "name": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 120 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "role": { "type": "string", "enum": ["customer", "admin"] },
+        "address": { "type": "string", "maxLength": 250 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "email", "role"]
+    },
+    "RepairOrder": {
+      "title": "Repair Order",
+      "description": "Engineering service or repair request ticket",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderNumber": { "type": "string", "maxLength": 50 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 100 },
+        "customerEmail": { "type": "string", "maxLength": 120 },
+        "customerPhone": { "type": "string", "maxLength": 30 },
+        "customerAddress": { "type": "string", "maxLength": 250 },
+        "department": { "type": "string", "enum": ["generators", "ac", "sumo"] },
+        "equipmentModel": { "type": "string", "maxLength": 100 },
+        "issueCategory": { "type": "string", "enum": ["servicing", "overhauling", "repair", "installation"] },
+        "issueDescription": { "type": "string", "maxLength": 1000 },
+        "deliveryMode": { "type": "string", "enum": ["home_service", "pickup_return", "workshop_dropoff"] },
+        "status": {
+          "type": "string",
+          "enum": ["request_received", "picked_up", "diagnostic", "in_repair", "quality_tested", "ready_delivered"]
+        },
+        "estimatedPrice": { "type": "number" },
+        "deliveryFee": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "overhaulingAdjustment": { "type": "number" },
+        "overhaulingAdjustmentReason": { "type": "string", "maxLength": 300 },
+        "inspectionNote": { "type": "string", "maxLength": 500 },
+        "paymentStatus": { "type": "string", "enum": ["unpaid", "paid_online", "pay_on_arrival"] },
+        "paymentMethod": { "type": "string" },
+        "transactionRef": { "type": "string", "maxLength": 100 },
+        "receiptNumber": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["orderNumber", "customerName", "customerPhone", "department", "issueCategory", "deliveryMode", "status", "totalAmount", "paymentStatus"]
+    },
+    "EquipmentProduct": {
+      "title": "Equipment Product",
+      "description": "Equipment available for sale in the marketplace",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 150 },
+        "department": { "type": "string", "enum": ["generators", "ac", "sumo"] },
+        "condition": { "type": "string", "enum": ["brand_new", "fairly_used"] },
+        "price": { "type": "number" },
+        "originalPrice": { "type": "number" },
+        "brand": { "type": "string", "maxLength": 60 },
+        "model": { "type": "string", "maxLength": 60 },
+        "capacity": { "type": "string", "maxLength": 60 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "imageUrl": { "type": "string", "maxLength": 500 },
+        "warrantyMonths": { "type": "number" },
+        "loadBankTested": { "type": "boolean" },
+        "inStock": { "type": "boolean" },
+        "rating": { "type": "number" },
+        "reviewCount": { "type": "number" }
+      },
+      "required": ["name", "department", "condition", "price", "inStock"]
+    },
+    "SellRequest": {
+      "title": "Sell Equipment Request",
+      "description": "Customer trade-in appraisal or machine sale request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "requestNumber": { "type": "string", "maxLength": 50 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 100 },
+        "customerPhone": { "type": "string", "maxLength": 30 },
+        "customerAddress": { "type": "string", "maxLength": 250 },
+        "department": { "type": "string", "enum": ["generators", "ac", "sumo"] },
+        "brandModel": { "type": "string", "maxLength": 100 },
+        "workingCondition": { "type": "string", "enum": ["not_working", "working_with_faults", "working_good"] },
+        "issueDescription": { "type": "string", "maxLength": 1000 },
+        "estimatedOfferRange": { "type": "string", "maxLength": 100 },
+        "offeredPrice": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending_review", "inspected", "offer_sent", "accepted", "declined"] },
+        "adminNotes": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["requestNumber", "customerName", "customerPhone", "department", "brandModel", "workingCondition", "status"]
+    },
+    "BusinessSettings": {
+      "title": "Business Settings",
+      "description": "Surevolt editable business configuration, working hours, pricing & contact info",
+      "type": "object",
+      "properties": {
+        "companyName": { "type": "string", "maxLength": 100 },
+        "tagline": { "type": "string", "maxLength": 200 },
+        "contactPhone": { "type": "string", "maxLength": 40 },
+        "alternatePhone": { "type": "string", "maxLength": 40 },
+        "contactEmail": { "type": "string", "maxLength": 100 },
+        "workshopAddress": { "type": "string", "maxLength": 250 },
+        "workingHours": { "type": "string", "maxLength": 60 },
+        "operatingSince": { "type": "number" },
+        "announcementNotice": { "type": "string", "maxLength": 300 },
+        "refundPolicyHours": { "type": "number" },
+        "cancellationWindowHours": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["companyName", "contactPhone", "workshopAddress", "workingHours", "operatingSince"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile store, secured by owner UID or admin"
+    },
+    "/orders/{orderId}": {
+      "schema": "RepairOrder",
+      "description": "Service and repair tickets, readable by order owner, lookup by phone/orderNumber, or admin"
+    },
+    "/products/{productId}": {
+      "schema": "EquipmentProduct",
+      "description": "Public catalog of generators, ACs, and pumps for sale, editable by admin"
+    },
+    "/sellRequests/{requestId}": {
+      "schema": "SellRequest",
+      "description": "Customer trade-in appraisal requests, managed by customer and admin"
+    },
+    "/settings/{settingId}": {
+      "schema": "BusinessSettings",
+      "description": "Global business settings, publicly readable, editable by admin"
+    },
+    "/admins/{adminUid}": {
+      "schema": "User",
+      "description": "Authorized admin users document lookup for RBAC"
+    }
+  }
+}
