@@ -83,10 +83,17 @@ export const ReceiptModal: React.FC = () => {
                 </h2>
               </div>
               <p className="text-xs text-slate-500 font-medium">{settings.tagline}</p>
-              <div className="text-[11px] text-slate-500 space-y-0.5 pt-1">
-                <p className="flex items-center gap-1">
-                  <MapPin className="w-3 h-3 text-slate-400" /> {settings.workshopAddress}
-                </p>
+              <div className="text-[11px] text-slate-500 space-y-1 pt-1">
+                <div className="space-y-0.5">
+                  <p className="flex items-start gap-1">
+                    <MapPin className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
+                    <span><strong>Umudike Hub:</strong> Back of university stadium Umudike, Umuahia, Abia State</span>
+                  </p>
+                  <p className="flex items-start gap-1">
+                    <MapPin className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
+                    <span><strong>Oyigbo Hub:</strong> Peace Estate, Oyigbo, Port Harcourt, Rivers State</span>
+                  </p>
+                </div>
                 <p className="flex items-center gap-1">
                   <Phone className="w-3 h-3 text-slate-400" /> {settings.contactPhone}
                 </p>

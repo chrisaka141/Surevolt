@@ -122,7 +122,7 @@ export const RepairBookingModal: React.FC = () => {
       customerName,
       customerEmail: customerEmail || 'customer@surevolt.ng',
       customerPhone,
-      customerAddress: customerAddress || 'Ikeja Workshop Dropoff / Pending Address',
+      customerAddress: customerAddress || 'Workshop Dropoff / Pending Address',
       department,
       equipmentModel: equipmentModel.trim() || undefined,
       issueCategory: analysis.category,
@@ -396,7 +396,7 @@ export const RepairBookingModal: React.FC = () => {
                   <span className="text-xs font-bold text-emerald-600">FREE</span>
                 </div>
                 <span className="text-xs font-bold text-slate-900 block">Workshop Drop-off</span>
-                <span className="text-[10px] text-slate-500">You bring machine to Ikeja workshop</span>
+                <span className="text-[10px] text-slate-500">You bring machine to Umudike or Oyigbo workshop</span>
               </button>
             </div>
           </div>
@@ -439,7 +439,7 @@ export const RepairBookingModal: React.FC = () => {
                 type="text"
                 value={customerAddress}
                 onChange={(e) => setCustomerAddress(e.target.value)}
-                placeholder="Street address, Estate or Landmark (Lagos State)"
+                placeholder="Street address, Estate or Landmark (e.g. Umudike, Umuahia, Oyigbo, Port Harcourt)"
                 className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
                 required
               />

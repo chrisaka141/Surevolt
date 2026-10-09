@@ -21,10 +21,17 @@ import {
   ShieldCheck,
   Send,
   Sparkles,
+  UserCheck,
+  UserPlus,
+  UserMinus,
+  LogOut,
+  Key,
+  ShieldAlert,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatNaira } from '../utils/categorization';
 import { OrderStatus, RepairOrder, EquipmentProduct, SellRequest } from '../types';
+import { AdminGate } from './AdminGate';
 
 export const AdminDashboard: React.FC = () => {
   const {
@@ -42,9 +49,21 @@ export const AdminDashboard: React.FC = () => {
     setCurrentReceipt,
     setActiveModal,
     addNotification,
+    isAdmin,
+    isOwner,
+    currentUser,
+    adminLogout,
+    grantAdminPermission,
+    revokeAdminPermission,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'orders' | 'sell_requests' | 'inventory' | 'settings'>('orders');
+  // If not authenticated as owner or authorized admin, display the secure gate
+  if (!isAdmin) {
+    return <AdminGate />;
+  }
+
+  const [activeTab, setActiveTab] = useState<'orders' | 'sell_requests' | 'inventory' | 'settings' | 'permissions'>('orders');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
 
   // Business Settings Edit State
   const [phone, setPhone] = useState(settings.contactPhone);
@@ -52,6 +71,15 @@ export const AdminDashboard: React.FC = () => {
   const [address, setAddress] = useState(settings.workshopAddress);
   const [hours, setHours] = useState(settings.workingHours);
   const [since, setSince] = useState<number | string>(settings.operatingSince);
+
+  // Sync settings when updated from Firestore
+  React.useEffect(() => {
+    setPhone(settings.contactPhone);
+    setAltPhone(settings.alternatePhone);
+    setAddress(settings.workshopAddress);
+    setHours(settings.workingHours);
+    setSince(settings.operatingSince);
+  }, [settings]);
 
   // Pricing Config Edit State
   const [servicingMin, setServicingMin] = useState(settings.pricingConfig.servicingMin);
@@ -191,13 +219,22 @@ export const AdminDashboard: React.FC = () => {
               <p className="text-xs text-slate-400 mt-0.5">
                 Manage live work tickets, adjust prices in real time, inspect machines, and update business profile.
               </p>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[11px] font-bold border border-amber-400/30">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{isOwner ? '👑 Web App Owner: chrisaka141@gmail.com' : `Authorized Admin: ${currentUser?.email}`}</span>
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  {isOwner ? 'Full Master Rights' : 'Delegated Admin Rights'}
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-800 p-1 rounded-xl">
+          <div className="flex flex-wrap items-center gap-2 bg-slate-800 p-1.5 rounded-xl">
             <button
               onClick={() => setActiveTab('orders')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeTab === 'orders' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-300 hover:text-white'
               }`}
             >
@@ -206,7 +243,7 @@ export const AdminDashboard: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('sell_requests')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeTab === 'sell_requests' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-300 hover:text-white'
               }`}
             >
@@ -215,7 +252,7 @@ export const AdminDashboard: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('inventory')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeTab === 'inventory' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-300 hover:text-white'
               }`}
             >
@@ -224,11 +261,30 @@ export const AdminDashboard: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('settings')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeTab === 'settings' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-300 hover:text-white'
               }`}
             >
               Business Settings
+            </button>
+
+            <button
+              onClick={() => setActiveTab('permissions')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'permissions' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Key className="w-3.5 h-3.5" />
+              <span>Owner Permissions</span>
+            </button>
+
+            <button
+              onClick={adminLogout}
+              className="px-2.5 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+              title="Lock and sign out of Admin Portal"
+            >
+              <LogOut className="w-3.5 h-3.5 text-red-400" />
+              <span>Lock</span>
             </button>
           </div>
         </div>
@@ -809,14 +865,18 @@ export const AdminDashboard: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Primary Contact Phone
+                      Primary Contact Phone (Call & WhatsApp)
                     </label>
                     <input
                       type="text"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm"
+                      placeholder="+234 8140923141"
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold"
                     />
+                    <span className="text-[11px] text-emerald-700 font-medium mt-0.5 block">
+                      Direct hotline & WhatsApp enabled
+                    </span>
                   </div>
 
                   <div>
@@ -832,15 +892,31 @@ export const AdminDashboard: React.FC = () => {
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Workshop Physical Address
-                    </label>
-                    <input
-                      type="text"
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-slate-700 block">
+                        Workshop Physical Addresses (Locations & Branches)
+                      </label>
+                      <span className="text-[11px] text-amber-700 font-semibold">
+                        Umudike (Abia State) & Oyigbo (Rivers State)
+                      </span>
+                    </div>
+                    <textarea
+                      rows={2}
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
-                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm"
+                      placeholder="e.g. Back of university stadium Umudike, Umuahia, Abia State | Peace Estate, Oyigbo, Port Harcourt, Rivers State"
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm leading-relaxed"
                     />
+                    <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-slate-500">
+                      <span>Quick Presets:</span>
+                      <button
+                        type="button"
+                        onClick={() => setAddress('Back of university stadium Umudike, Umuahia, Abia State | Peace Estate, Oyigbo, Port Harcourt, Rivers State')}
+                        className="text-amber-700 hover:underline cursor-pointer font-medium"
+                      >
+                        Reset to both official addresses
+                      </button>
+                    </div>
                   </div>
 
                   <div>
@@ -913,6 +989,173 @@ export const AdminDashboard: React.FC = () => {
                   Broadcast Announcement
                 </button>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: ACCESS & OWNER PERMISSIONS */}
+        {activeTab === 'permissions' && (
+          <div className="space-y-6">
+            {/* Owner Master Authority Card */}
+            <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 sm:p-8 text-white shadow-xl">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center text-2xl font-black">
+                    👑
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs uppercase font-bold tracking-widest text-amber-400">
+                        Primary System Owner
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">
+                        Master Access
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-black text-white mt-0.5">
+                      chrisaka141@gmail.com
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Sole Web App Owner of Surevolt Engineering Services
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-xs font-mono text-slate-300">
+                    <span className="text-slate-500">Security Rule: </span>
+                    <span className="text-amber-400 font-bold">Owner Isolation</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6">
+                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Access Level
+                  </span>
+                  <p className="text-sm font-bold text-white">Full Master Control</p>
+                  <p className="text-[11px] text-slate-500">
+                    Pricing, settings, job tickets, buyback decisions & user permissions.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Access Gate Enforcement
+                  </span>
+                  <p className="text-sm font-bold text-emerald-400">Default Deny-All Active</p>
+                  <p className="text-[11px] text-slate-500">
+                    Anyone not the web app owner and not given explicit permission is denied.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Authentication Type
+                  </span>
+                  <p className="text-sm font-bold text-amber-400">Owner Password Verified</p>
+                  <p className="text-[11px] text-slate-500">
+                    Signing in requires the verified owner email and secure credentials.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Grant Permission to Team Members */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-6">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <UserPlus className="w-5 h-5 text-amber-600" />
+                  <h3 className="text-base font-black text-slate-900">
+                    Grant Administrator Permission
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  As the web app owner, you can authorize specific team engineers or managers to access the admin portal. They will be added to the authorized access registry.
+                </p>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (newAdminEmail.trim()) {
+                    grantAdminPermission(newAdminEmail.trim());
+                    setNewAdminEmail('');
+                  }
+                }}
+                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
+              >
+                <div className="flex-1">
+                  <input
+                    type="email"
+                    value={newAdminEmail}
+                    onChange={(e) => setNewAdminEmail(e.target.value)}
+                    placeholder="Enter staff email (e.g. engineer.tunde@surevolt.ng)"
+                    required
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl text-xs font-semibold outline-none transition"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl transition shadow flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                >
+                  <UserCheck className="w-4 h-4" />
+                  <span>Grant Admin Permission</span>
+                </button>
+              </form>
+
+              {/* List of permitted administrators */}
+              <div className="pt-4 border-t border-slate-200">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">
+                  Authorized Administrators List
+                </h4>
+
+                {(!settings.permittedAdmins || settings.permittedAdmins.length === 0) ? (
+                  <div className="p-6 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-2">
+                    <ShieldCheck className="w-8 h-8 text-amber-600 mx-auto opacity-70" />
+                    <p className="text-xs font-bold text-slate-700">
+                      No Delegated Administrators Added
+                    </p>
+                    <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                      Access to the admin control portal is currently restricted <strong className="text-slate-800">100% exclusively to you</strong>, the web app owner (<code className="text-amber-700 font-mono">chrisaka141@gmail.com</code>).
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
+                    {settings.permittedAdmins.map((adminEmail) => (
+                      <div
+                        key={adminEmail}
+                        className="p-4 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs">
+                            {adminEmail.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <span className="text-xs font-bold text-slate-900 block font-mono">
+                              {adminEmail}
+                            </span>
+                            <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Granted permission by Owner
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => revokeAdminPermission(adminEmail)}
+                          className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+                        >
+                          <UserMinus className="w-3.5 h-3.5" />
+                          <span>Revoke Access</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

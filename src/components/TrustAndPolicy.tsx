@@ -21,21 +21,21 @@ export const TrustAndPolicy: React.FC = () => {
   const testimonials = [
     {
       name: 'Dr. Babatunde Alabi',
-      role: 'Clinic Director, Ikeja',
+      role: 'Clinic Director, Umuahia',
       text: 'Our 7.5kVA Lutian clinic generator knocked at 7:00 AM on a Monday. Surevolt team picked it up, performed a complete overhaul by evening, and delivered it back. It has been running flawlessly without smoke for 6 months now.',
       rating: 5,
       service: 'Generator Overhauling',
     },
     {
       name: 'Engr. Sarah Nwachukwu',
-      role: 'Estate Manager, Lekki',
+      role: 'Estate Manager, Oyigbo / Port Harcourt',
       text: 'Their submersible pump (Sumo) rewinding service saved our residential estate over ₦400,000 compared to buying a brand new Italian pump. The pressure test and Class-H winding quality are top notch.',
       rating: 5,
       service: 'Submersible Pump (Sumo) Overhaul',
     },
     {
       name: 'Alhaji Musa Danladi',
-      role: 'Supermarket Owner, Maryland',
+      role: 'Supermarket Owner, Umudike',
       text: 'I bought two fairly used 2.0HP Inverter ACs from Surevolt. They look and chill like factory new units. Plus their 6am to 9pm service availability gives immense peace of mind.',
       rating: 5,
       service: 'Used AC Purchase & Installation',

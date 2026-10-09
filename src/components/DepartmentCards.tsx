@@ -397,7 +397,7 @@ export const DepartmentCards: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed mb-4">
-                Bring your equipment directly to our central workshop in Ikeja. Meet the master mechanics and receive an immediate physical walk-through.
+                Bring your equipment directly to our workshop locations (Back of university stadium Umudike, Abia State or Peace Estate, Oyigbo, Rivers State). Meet the master mechanics and receive an immediate physical walk-through.
               </p>
               <ul className="text-xs text-slate-500 space-y-1">
                 <li>• Free initial physical inspection</li>

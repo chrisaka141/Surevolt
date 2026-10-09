@@ -28,6 +28,7 @@ import {
   Sparkles,
   ShoppingBag,
   DollarSign,
+  MessageCircle,
 } from 'lucide-react';
 import { formatNaira } from './utils/categorization';
 
@@ -169,7 +170,7 @@ const AppContent: React.FC = () => {
                       Workshop Drop-Off
                     </h3>
                     <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                      Drop off your equipment directly at our central workshop hub in Ikeja, Lagos. Our engineers start initial visual teardown immediately, and you pay strictly for the service or overhaul.
+                      Drop off your equipment directly at any of our workshop hubs in Umudike, Abia State or Oyigbo, Rivers State. Our engineers start initial visual teardown immediately, and you pay strictly for the service or overhaul.
                     </p>
                     <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-500">Drop-off Fee:</span>
@@ -212,6 +213,17 @@ const AppContent: React.FC = () => {
 
       {/* Quick Action Floating Bar for Mobile/Desktop */}
       <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2">
+        <a
+          href={`https://wa.me/${settings.contactPhone.replace(/[^0-9]/g, '')}?text=Hello%20Surevolt%20Engineering%20Services,%20I%20would%20like%20to%20inquire%20about%20your%20services.`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-3 sm:px-3.5 sm:py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-xl shadow-emerald-600/30 border border-emerald-400/30 flex items-center gap-1.5 transition cursor-pointer hover:scale-105 active:scale-95"
+          title="Chat on WhatsApp (+234 8140923141)"
+        >
+          <MessageCircle className="w-4 h-4 fill-white" />
+          <span className="hidden sm:inline">WhatsApp</span>
+        </a>
+
         <button
           onClick={() => setActiveModal('booking')}
           className="px-4 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm rounded-2xl shadow-xl shadow-amber-500/30 flex items-center gap-2 transition cursor-pointer hover:scale-105 active:scale-95"

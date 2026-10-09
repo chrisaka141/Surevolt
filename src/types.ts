@@ -126,6 +126,7 @@ export interface BusinessSettings {
   alternatePhone: string;
   contactEmail: string;
   workshopAddress: string;
+  workshopAddresses?: string[];
   workingHours: string; // "6:00 AM – 9:00 PM Daily"
   operatingSince: number; // 2015
   pricingConfig: PricingConfig;
@@ -133,6 +134,7 @@ export interface BusinessSettings {
   announcementNotice: string;
   refundPolicyHours: number; // 24
   cancellationWindowHours: string; // "6–12 hours"
+  permittedAdmins?: string[];
 }
 
 export interface UserProfile {
@@ -141,6 +143,7 @@ export interface UserProfile {
   email: string;
   phone: string;
   role: 'customer' | 'admin';
+  isOwner?: boolean;
   address?: string;
   avatar?: string;
 }

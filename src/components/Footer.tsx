@@ -14,6 +14,7 @@ import {
   Droplets,
   ShoppingBag,
   DollarSign,
+  MessageCircle,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -91,19 +92,51 @@ export const Footer: React.FC = () => {
               Surevolt is Nigeria’s premier certified engineering service for Petrol Generators, Air Conditioning systems, and Submersible Borehole Pumps (Sumo). Precision overhaul, certified load bank testing, and guaranteed buyback marketplace.
             </p>
 
-            <div className="pt-2 text-xs text-slate-400 space-y-1.5">
-              <p className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-amber-500 shrink-0" />
-                <span>{settings.workshopAddress}</span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-amber-500 shrink-0" />
-                <span>{settings.contactPhone} / {settings.alternatePhone}</span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-amber-500 shrink-0" />
-                <span>service@surevolt.ng / sales@surevolt.ng</span>
-              </p>
+            <div className="pt-2 text-xs text-slate-400 space-y-2">
+              <div className="space-y-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 block">
+                  Workshop Locations:
+                </span>
+                <p className="flex items-start gap-2">
+                  <MapPin className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <span>
+                    <strong className="text-white">Umudike Workshop:</strong> Back of university stadium Umudike, Umuahia, Abia State
+                  </span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <MapPin className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <span>
+                    <strong className="text-white">Oyigbo Workshop:</strong> Peace Estate, Oyigbo, Port Harcourt, Rivers State
+                  </span>
+                </p>
+              </div>
+              <div className="pt-1 space-y-1.5">
+                <p className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-amber-500 shrink-0" />
+                  <a href={`tel:${settings.contactPhone}`} className="hover:text-amber-400 font-semibold text-white">
+                    {settings.contactPhone}
+                  </a>
+                  <span className="text-slate-500">/ {settings.alternatePhone}</span>
+                </p>
+                <p className="flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4 text-emerald-400 shrink-0 fill-emerald-400/20" />
+                  <a
+                    href={`https://wa.me/${settings.contactPhone.replace(/[^0-9]/g, '')}?text=Hello%20Surevolt%20Engineering,%20I%20would%20like%20to%20inquire%20about%20your%20services.`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-emerald-400 hover:text-emerald-300 font-medium hover:underline flex items-center gap-1"
+                  >
+                    <span>{settings.contactPhone}</span>
+                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
+                      Available on WhatsApp
+                    </span>
+                  </a>
+                </p>
+                <p className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>service@surevolt.ng / sales@surevolt.ng</span>
+                </p>
+              </div>
             </div>
           </div>
 
@@ -161,7 +194,7 @@ export const Footer: React.FC = () => {
             <ul className="space-y-2 text-xs text-slate-400">
               <li>• Home Service (On-site Technician)</li>
               <li>• Pickup & Return Logistics</li>
-              <li>• Workshop Drop-off (Ikeja Hub)</li>
+              <li>• Workshop Drop-off (Umudike & Oyigbo Hubs)</li>
               <li>• Real-Time Order Tracking</li>
               <li>• Digital Audio Diagnostic Notes</li>
               <li>• Instant Automated Receipt</li>

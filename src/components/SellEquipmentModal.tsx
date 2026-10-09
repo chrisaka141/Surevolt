@@ -322,13 +322,13 @@ export const SellEquipmentModal: React.FC = () => {
             </div>
             <div className="sm:col-span-2">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                Equipment Location (Lagos Address)
+                Equipment Location (Address / State)
               </label>
               <input
                 type="text"
                 value={customerAddress}
                 onChange={(e) => setCustomerAddress(e.target.value)}
-                placeholder="e.g. Ikeja, Surulere, Lekki, Ogba..."
+                placeholder="e.g. Umudike, Umuahia, Oyigbo, Port Harcourt..."
                 className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500"
               />
             </div>

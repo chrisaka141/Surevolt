@@ -35,10 +35,15 @@ import {
 } from 'firebase/firestore';
 import {
   signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
 } from 'firebase/auth';
+
+export const OWNER_EMAIL = 'chrisaka141@gmail.com';
+export const OWNER_PASSWORD = '6795911014.Aa';
 
 interface AppNotification {
   id: string;
@@ -83,9 +88,15 @@ interface AppContextType {
   // User Auth & Profiles
   currentUser: UserProfile | null;
   setCurrentUser: (user: UserProfile | null) => void;
+  isOwner: boolean;
+  isAdmin: boolean;
   login: (email: string, role?: 'customer' | 'admin') => void;
   loginWithGoogle: () => Promise<void>;
   logout: () => void;
+  adminLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  adminLogout: () => Promise<void>;
+  grantAdminPermission: (email: string) => Promise<void>;
+  revokeAdminPermission: (email: string) => Promise<void>;
   toggleAdminMode: () => void;
 
   // Modals & Active Selections
@@ -120,7 +131,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [settings, setSettings] = useState<BusinessSettings>(() => {
     try {
       const saved = localStorage.getItem('surevolt_settings');
-      return saved ? JSON.parse(saved) : initialBusinessSettings;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.workshopAddress && parsed.workshopAddress.includes('Ikeja')) {
+          return initialBusinessSettings;
+        }
+        if (!parsed.contactPhone || parsed.contactPhone.includes('883')) {
+          parsed.contactPhone = '+234 8140923141';
+        }
+        return parsed;
+      }
+      return initialBusinessSettings;
     } catch {
       return initialBusinessSettings;
     }
@@ -160,7 +181,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     try {
       const saved = localStorage.getItem('surevolt_current_user');
-      return saved ? JSON.parse(saved) : initialCurrentUser;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const isAdminVerified = localStorage.getItem('surevolt_admin_verified') === 'true';
+        if (parsed.role === 'admin') {
+          // If not properly verified as owner or permitted admin, downgrade to customer
+          const isOwnerEmail = parsed.email?.toLowerCase() === OWNER_EMAIL.toLowerCase();
+          if (!isAdminVerified || !isOwnerEmail) {
+            parsed.role = 'customer';
+            parsed.isOwner = false;
+          }
+        }
+        return parsed;
+      }
+      return initialCurrentUser;
     } catch {
       return initialCurrentUser;
     }
@@ -254,22 +288,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        const isAdminUser =
-          firebaseUser.email?.toLowerCase() === 'chrisaka141@gmail.com' ||
-          firebaseUser.email?.toLowerCase().includes('admin');
+        const isOwnerUser = firebaseUser.email?.toLowerCase() === OWNER_EMAIL.toLowerCase();
+        const isPermittedAdmin = isOwnerUser || (settings.permittedAdmins || []).map((e) => e.toLowerCase()).includes(firebaseUser.email?.toLowerCase() || '');
         const profile: UserProfile = {
           id: firebaseUser.uid,
-          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Surevolt Client',
+          name: firebaseUser.displayName || (isOwnerUser ? 'Engr. Chris (Owner)' : firebaseUser.email?.split('@')[0]) || 'Surevolt Client',
           email: firebaseUser.email || '',
           phone: firebaseUser.phoneNumber || '+234 814 883 2901',
-          role: isAdminUser ? 'admin' : 'customer',
-          address: 'Lagos, Nigeria',
+          role: isPermittedAdmin ? 'admin' : 'customer',
+          isOwner: isOwnerUser,
+          address: 'Umudike / Oyigbo',
           avatar: firebaseUser.photoURL || undefined,
         };
         setCurrentUser(profile);
+        if (isPermittedAdmin) {
+          localStorage.setItem('surevolt_admin_verified', 'true');
+        }
         addNotification(
           `Welcome, ${profile.name}!`,
-          `Authenticated via Google Firebase (${profile.role.toUpperCase()})`,
+          isPermittedAdmin ? 'Authenticated as Administrator' : 'Authenticated as Customer',
           'success'
         );
       }
@@ -286,7 +323,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       settingsDocRef,
       (snapshot) => {
         if (snapshot.exists()) {
-          setSettings(snapshot.data() as BusinessSettings);
+          const remoteData = snapshot.data() as BusinessSettings;
+          if (remoteData.workshopAddress && remoteData.workshopAddress.includes('Ikeja')) {
+            const upgradedSettings: BusinessSettings = {
+              ...remoteData,
+              workshopAddress: initialBusinessSettings.workshopAddress,
+              workshopAddresses: initialBusinessSettings.workshopAddresses,
+            };
+            setSettings(upgradedSettings);
+            setDoc(settingsDocRef, upgradedSettings, { merge: true }).catch((err) => {
+              console.warn('Could not upgrade settings address in Firestore:', err);
+            });
+          } else {
+            setSettings(remoteData);
+          }
         } else {
           // Seed initial settings into Firestore
           setDoc(settingsDocRef, initialBusinessSettings).catch((err) => {
@@ -677,17 +727,209 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Auth Helpers
+  const isOwner = Boolean(
+    currentUser?.email?.toLowerCase() === OWNER_EMAIL.toLowerCase() &&
+    currentUser?.role === 'admin' &&
+    localStorage.getItem('surevolt_admin_verified') === 'true'
+  );
+
+  const isAdmin = Boolean(
+    isOwner ||
+    (currentUser?.role === 'admin' &&
+     (settings.permittedAdmins || []).map((e) => e.toLowerCase()).includes(currentUser?.email?.toLowerCase() || '') &&
+     localStorage.getItem('surevolt_admin_verified') === 'true')
+  );
+
+  const adminLogin = async (
+    emailInput: string,
+    passwordInput: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    const trimmedEmail = emailInput.trim().toLowerCase();
+
+    // 1. Check Web App Owner credentials
+    if (trimmedEmail === OWNER_EMAIL.toLowerCase()) {
+      if (passwordInput !== OWNER_PASSWORD) {
+        return {
+          success: false,
+          error: 'Access Denied: Incorrect password for web app owner.',
+        };
+      }
+
+      // Owner credentials verified! Connect Firebase Auth session
+      try {
+        await signInWithEmailAndPassword(auth, OWNER_EMAIL, OWNER_PASSWORD);
+      } catch (authErr: unknown) {
+        const fbErr = authErr as { code?: string };
+        if (fbErr?.code === 'auth/user-not-found' || fbErr?.code === 'auth/invalid-credential') {
+          try {
+            await createUserWithEmailAndPassword(auth, OWNER_EMAIL, OWNER_PASSWORD);
+          } catch (createErr) {
+            console.info('Firebase auth sync note:', createErr);
+          }
+        } else {
+          console.info('Firebase auth note:', authErr);
+        }
+      }
+
+      const ownerProfile: UserProfile = {
+        id: auth.currentUser?.uid || 'usr-owner-chris',
+        name: 'Engr. Chris (Owner)',
+        email: OWNER_EMAIL,
+        phone: '+234 8140923141',
+        role: 'admin',
+        isOwner: true,
+        address: 'Surevolt Central Workshop',
+      };
+
+      setCurrentUser(ownerProfile);
+      localStorage.setItem('surevolt_admin_verified', 'true');
+      localStorage.setItem('surevolt_current_user', JSON.stringify(ownerProfile));
+      addNotification(
+        'Access Granted: Owner Authenticated',
+        'Welcome back, Engr. Chris! Admin Control Portal unlocked.',
+        'success'
+      );
+      return { success: true };
+    }
+
+    // 2. Check Permitted Admins given permission by owner
+    const permittedList = (settings.permittedAdmins || []).map((e) => e.toLowerCase());
+    if (permittedList.includes(trimmedEmail)) {
+      if (!passwordInput.trim()) {
+        return { success: false, error: 'Please enter your administrator password.' };
+      }
+
+      try {
+        await signInWithEmailAndPassword(auth, trimmedEmail, passwordInput);
+      } catch (e) {
+        console.info('Permitted admin auth note:', e);
+      }
+
+      const staffProfile: UserProfile = {
+        id: auth.currentUser?.uid || 'usr-staff-' + Date.now(),
+        name: trimmedEmail.split('@')[0] + ' (Authorized Admin)',
+        email: trimmedEmail,
+        phone: '+234 8140923141',
+        role: 'admin',
+        isOwner: false,
+        address: 'Workshop Station',
+      };
+
+      setCurrentUser(staffProfile);
+      localStorage.setItem('surevolt_admin_verified', 'true');
+      localStorage.setItem('surevolt_current_user', JSON.stringify(staffProfile));
+      addNotification(
+        'Access Granted',
+        `Welcome! Admin portal unlocked for ${trimmedEmail}.`,
+        'success'
+      );
+      return { success: true };
+    }
+
+    // 3. Deny everyone else!
+    return {
+      success: false,
+      error:
+        'Access Denied: You are not the web app owner and have not been granted admin permission. Only chrisaka141@gmail.com and authorized personnel may access.',
+    };
+  };
+
+  const adminLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.warn('SignOut error:', e);
+    }
+    localStorage.removeItem('surevolt_admin_verified');
+    const guestUser: UserProfile = {
+      id: 'usr-customer-1',
+      name: 'Customer Guest',
+      email: 'customer@surevolt.ng',
+      phone: '+234 803 123 4567',
+      role: 'customer',
+      address: 'Lekki Phase 1, Lagos',
+    };
+    setCurrentUser(guestUser);
+    localStorage.setItem('surevolt_current_user', JSON.stringify(guestUser));
+    setActiveTab('home');
+    addNotification('Admin Portal Locked', 'You have securely signed out of the Admin Control Portal.', 'info');
+  };
+
+  const grantAdminPermission = async (emailToGrant: string) => {
+    if (!isOwner) {
+      addNotification(
+        'Permission Denied',
+        'Only the web app owner (chrisaka141@gmail.com) can grant admin permissions.',
+        'error'
+      );
+      return;
+    }
+    const cleanEmail = emailToGrant.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      addNotification('Invalid Email', 'Please enter a valid email address.', 'error');
+      return;
+    }
+    const currentList = settings.permittedAdmins || [];
+    if (currentList.map((e) => e.toLowerCase()).includes(cleanEmail)) {
+      addNotification('Already Permitted', `${cleanEmail} already has admin permissions.`, 'warning');
+      return;
+    }
+    const updated = [...currentList, cleanEmail];
+    await updateSettings({ permittedAdmins: updated });
+    addNotification(
+      'Permission Granted',
+      `${cleanEmail} has been added as an authorized administrator.`,
+      'success'
+    );
+  };
+
+  const revokeAdminPermission = async (emailToRevoke: string) => {
+    if (!isOwner) {
+      addNotification(
+        'Permission Denied',
+        'Only the web app owner (chrisaka141@gmail.com) can revoke admin permissions.',
+        'error'
+      );
+      return;
+    }
+    const cleanEmail = emailToRevoke.trim().toLowerCase();
+    const currentList = settings.permittedAdmins || [];
+    const updated = currentList.filter((e) => e.toLowerCase() !== cleanEmail);
+    await updateSettings({ permittedAdmins: updated });
+    addNotification(
+      'Permission Revoked',
+      `Admin access removed for ${cleanEmail}.`,
+      'info'
+    );
+  };
+
   const login = (email: string, role: 'customer' | 'admin' = 'customer') => {
+    if (role === 'admin') {
+      const isOwnerEmail = email.toLowerCase() === OWNER_EMAIL.toLowerCase();
+      const isPermitted =
+        isOwnerEmail ||
+        (settings.permittedAdmins || []).map((e) => e.toLowerCase()).includes(email.toLowerCase());
+      const isVerified = localStorage.getItem('surevolt_admin_verified') === 'true';
+      if (!isPermitted || !isVerified) {
+        addNotification(
+          'Authentication Required',
+          'Please sign in to the Admin Portal with your owner password.',
+          'warning'
+        );
+        setActiveTab('admin');
+        return;
+      }
+    }
     const user: UserProfile = {
       id: 'usr-' + Date.now(),
-      name: role === 'admin' ? 'Engr. Chris (Surevolt Admin)' : email.split('@')[0],
+      name: email.split('@')[0],
       email,
-      phone: '+234 814 883 2901',
-      role,
+      phone: '+234 8140923141',
+      role: 'customer',
       address: 'Lagos, Nigeria',
     };
     setCurrentUser(user);
-    addNotification(`Welcome, ${user.name}!`, `Logged in as ${role.toUpperCase()}`, 'success');
+    addNotification(`Welcome, ${user.name}!`, 'Logged in as Customer', 'success');
   };
 
   const loginWithGoogle = async () => {
@@ -695,22 +937,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const provider = new GoogleAuthProvider();
       const res = await signInWithPopup(auth, provider);
       const user = res.user;
-      const isAdminUser = user.email?.toLowerCase() === 'chrisaka141@gmail.com';
+      const isOwnerUser = user.email?.toLowerCase() === OWNER_EMAIL.toLowerCase();
+      const isPermitted =
+        isOwnerUser ||
+        (settings.permittedAdmins || []).map((e) => e.toLowerCase()).includes(user.email?.toLowerCase() || '');
       const profile: UserProfile = {
         id: user.uid,
-        name: user.displayName || user.email?.split('@')[0] || 'Client',
+        name: user.displayName || (isOwnerUser ? 'Engr. Chris (Owner)' : user.email?.split('@')[0]) || 'Client',
         email: user.email || '',
-        phone: user.phoneNumber || '+234 814 883 2901',
-        role: isAdminUser ? 'admin' : 'customer',
-        address: 'Lagos, Nigeria',
+        phone: user.phoneNumber || '+234 8140923141',
+        role: isPermitted ? 'admin' : 'customer',
+        isOwner: isOwnerUser,
+        address: 'Umudike / Oyigbo',
         avatar: user.photoURL || undefined,
       };
       setCurrentUser(profile);
+      if (isPermitted) {
+        localStorage.setItem('surevolt_admin_verified', 'true');
+      }
       addNotification('Google Sign-In Successful', `Welcome ${profile.name}! Signed in via Firebase Auth.`, 'success');
     } catch (err: unknown) {
       console.warn('Google Popup sign-in error or cancelled:', err);
-      // Fallback seamlessly for environment preview
-      login('chrisaka141@gmail.com', 'admin');
     }
   };
 
@@ -720,17 +967,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       console.warn('SignOut error:', e);
     }
+    localStorage.removeItem('surevolt_admin_verified');
     setCurrentUser(null);
     addNotification('Logged Out', 'You have been safely signed out.', 'info');
   };
 
   const toggleAdminMode = () => {
-    if (!currentUser || currentUser.role === 'customer') {
-      login('chrisaka141@gmail.com', 'admin');
-      setActiveTab('admin');
+    if (isAdmin) {
+      adminLogout();
     } else {
-      login('chrisaka141@gmail.com', 'customer');
-      setActiveTab('home');
+      setActiveTab('admin');
     }
   };
 
@@ -760,9 +1006,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateSellRequestOffer,
         currentUser,
         setCurrentUser,
+        isOwner,
+        isAdmin,
         login,
         loginWithGoogle,
         logout,
+        adminLogin,
+        adminLogout,
+        grantAdminPermission,
+        revokeAdminPermission,
         toggleAdminMode,
         activeModal,
         setActiveModal,

@@ -13,6 +13,8 @@ import {
   ShoppingBag,
   Zap,
   Cloud,
+  Lock,
+  MessageCircle,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -24,9 +26,12 @@ export const Header: React.FC = () => {
     setActiveTab,
     setActiveModal,
     logout,
+    adminLogout,
     toggleAdminMode,
     setSelectedDepartmentFilter,
     isFirebaseConnected,
+    isAdmin,
+    isOwner,
   } = useApp();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -62,22 +67,38 @@ export const Header: React.FC = () => {
               <span>{isFirebaseConnected ? 'Firebase Cloud' : 'Cloud Syncing'}</span>
             </div>
 
-            <a
-              href={`tel:${settings.contactPhone}`}
-              className="flex items-center gap-1.5 hover:underline font-semibold text-slate-950"
-            >
-              <Phone className="w-3.5 h-3.5" />
-              <span>{settings.contactPhone}</span>
-            </a>
+            <div className="flex items-center gap-2">
+              <a
+                href={`tel:${settings.contactPhone}`}
+                className="flex items-center gap-1.5 hover:underline font-bold text-slate-950"
+                title="Call Surevolt Engineering"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>Call: {settings.contactPhone}</span>
+              </a>
 
-            <button
-              onClick={toggleAdminMode}
-              className="px-2 py-0.5 bg-slate-950 text-amber-400 rounded text-[11px] font-mono font-bold hover:bg-slate-800 transition flex items-center gap-1 cursor-pointer"
-              title="Toggle between Customer and Admin mode"
-            >
-              <Zap className="w-3 h-3" />
-              {currentUser?.role === 'admin' ? 'Switch to Customer View' : 'Admin Portal'}
-            </button>
+              <a
+                href={`https://wa.me/${settings.contactPhone.replace(/[^0-9]/g, '')}?text=Hello%20Surevolt%20Engineering,%20I%20would%20like%20to%20inquire%20about%20your%20services.`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 hover:bg-emerald-900 font-bold text-[11px] transition shadow-xs cursor-pointer"
+                title="Chat with Surevolt on WhatsApp (+234 8140923141)"
+              >
+                <MessageCircle className="w-3 h-3 text-emerald-400 fill-emerald-400" />
+                <span>Also on WhatsApp</span>
+              </a>
+            </div>
+
+            {isAdmin && (
+              <button
+                onClick={toggleAdminMode}
+                className="px-2 py-0.5 bg-slate-950 text-amber-400 rounded text-[11px] font-mono font-bold hover:bg-slate-800 transition flex items-center gap-1 cursor-pointer"
+                title="Toggle between Customer and Admin mode"
+              >
+                <Zap className="w-3 h-3" />
+                {activeTab === 'admin' ? 'Customer View' : 'Admin Portal'}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -176,7 +197,7 @@ export const Header: React.FC = () => {
             Track Order
           </button>
 
-          {currentUser?.role === 'admin' && (
+          {isAdmin && (
             <button
               onClick={() => handleNav('admin')}
               className={`px-3.5 py-2 text-sm font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
@@ -186,7 +207,7 @@ export const Header: React.FC = () => {
               }`}
             >
               <LayoutDashboard className="w-4 h-4" />
-              Admin
+              Admin Portal
             </button>
           )}
         </nav>
@@ -291,6 +312,26 @@ export const Header: React.FC = () => {
             Track Repair Status
           </button>
 
+          {/* Quick Call & WhatsApp Mobile Buttons */}
+          <div className="pt-2 grid grid-cols-2 gap-2">
+            <a
+              href={`tel:${settings.contactPhone}`}
+              className="py-2.5 px-3 rounded-lg bg-slate-800 text-white text-xs font-bold text-center flex items-center justify-center gap-1.5 border border-slate-700 hover:bg-slate-700"
+            >
+              <Phone className="w-3.5 h-3.5 text-amber-400" />
+              <span>Call Hotline</span>
+            </a>
+            <a
+              href={`https://wa.me/${settings.contactPhone.replace(/[^0-9]/g, '')}?text=Hello%20Surevolt%20Engineering,%20I%20would%20like%20to%20inquire%20about%20your%20services.`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="py-2.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold text-center flex items-center justify-center gap-1.5"
+            >
+              <MessageCircle className="w-3.5 h-3.5 fill-white" />
+              <span>WhatsApp</span>
+            </a>
+          </div>
+
           {currentUser ? (
             <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
               <button
@@ -318,17 +359,41 @@ export const Header: React.FC = () => {
             </button>
           )}
 
-          <div className="pt-2">
-            <button
-              onClick={() => {
-                toggleAdminMode();
-                setMobileMenuOpen(false);
-              }}
-              className="w-full py-2 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-mono font-bold text-center border border-amber-500/30"
-            >
-              {currentUser?.role === 'admin' ? 'Exit Admin Mode' : 'Switch to Admin Portal'}
-            </button>
-          </div>
+          {isAdmin ? (
+            <div className="pt-2 flex items-center gap-2">
+              <button
+                onClick={() => {
+                  handleNav('admin');
+                }}
+                className="flex-1 py-2.5 rounded-lg bg-amber-500 text-slate-950 text-xs font-bold text-center flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>{isOwner ? '👑 Owner Portal' : 'Admin Portal'}</span>
+              </button>
+              <button
+                onClick={() => {
+                  adminLogout();
+                  setMobileMenuOpen(false);
+                }}
+                className="px-3 py-2.5 rounded-lg bg-slate-800 text-red-400 border border-red-500/30 text-xs font-bold text-center cursor-pointer"
+                title="Lock Portal"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="pt-2">
+              <button
+                onClick={() => {
+                  handleNav('admin');
+                }}
+                className="w-full py-2.5 rounded-lg bg-slate-950 text-amber-400 text-xs font-mono font-bold text-center border border-amber-500/30 cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Lock className="w-3.5 h-3.5 text-amber-400" />
+                <span>Admin Portal (Restricted 🔒)</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </header>

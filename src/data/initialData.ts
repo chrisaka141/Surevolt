@@ -3,15 +3,20 @@ import { BusinessSettings, EquipmentProduct, RepairOrder, SellRequest, UserProfi
 export const initialBusinessSettings: BusinessSettings = {
   companyName: 'Surevolt Engineering Services',
   tagline: 'Precision Repairs, Certified Overhauling & Trusted Power Equipment Since 2015',
-  contactPhone: '+234 814 883 2901',
+  contactPhone: '+234 8140923141',
   alternatePhone: '+234 802 390 1144',
   contactEmail: 'services@surevolt.ng',
-  workshopAddress: 'Plot 18, Commercial Avenue, Light Industrial Estate, Ikeja, Lagos State',
+  workshopAddress: 'Back of university stadium Umudike, Umuahia, Abia State | Peace Estate, Oyigbo, Port Harcourt, Rivers State',
+  workshopAddresses: [
+    'Back of university stadium Umudike, Umuahia, Abia State',
+    'Peace Estate, Oyigbo, Port Harcourt, Rivers State',
+  ],
   workingHours: '6:00 AM – 9:00 PM Daily',
   operatingSince: 2015,
   announcementNotice: '🚨 Special Offer: Free Diagnostic Inspection for all Workshop Drop-offs this week! Working hours 6:00 AM – 9:00 PM.',
   refundPolicyHours: 24,
   cancellationWindowHours: '6–12 hours',
+  permittedAdmins: [],
   pricingConfig: {
     servicingMin: 8000,
     servicingMax: 15000,
@@ -239,7 +244,7 @@ export const initialOrders: RepairOrder[] = [
         status: 'picked_up',
         label: 'Driver Picked Up Equipment',
         timestamp: '2026-09-21 11:15 AM',
-        note: 'Van 3 safely secured equipment and transferred to Ikeja workshop.',
+        note: 'Van 3 safely secured equipment and transferred to workshop.',
         updatedBy: 'Driver Tunde',
       },
       {
@@ -274,7 +279,7 @@ export const initialOrders: RepairOrder[] = [
     customerName: 'Amina Bello',
     customerEmail: 'amina.bello@example.com',
     customerPhone: '+234 818 765 4321',
-    customerAddress: 'Plot 4, Allen Avenue, Ikeja, Lagos',
+    customerAddress: 'Peace Estate, Oyigbo, Rivers State',
     department: 'ac',
     equipmentModel: 'LG 1.5HP Dual Inverter',
     issueCategory: 'servicing',
@@ -360,11 +365,7 @@ export const initialSellRequests: SellRequest[] = [
   },
 ];
 
-export const initialCurrentUser: UserProfile = {
-  id: 'usr-customer-1',
-  name: 'Chinedu Okafor',
-  email: 'chrisaka141@gmail.com',
-  phone: '+234 803 123 4567',
-  role: 'customer',
-  address: '12 Admiralty Way, Lekki Phase 1, Lagos',
-};
+export const OWNER_EMAIL = 'chrisaka141@gmail.com';
+export const OWNER_PASSWORD = '6795911014.Aa';
+
+export const initialCurrentUser: UserProfile | null = null;

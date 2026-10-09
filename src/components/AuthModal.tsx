@@ -13,18 +13,21 @@ import {
 import { useApp } from '../context/AppContext';
 
 export const AuthModal: React.FC = () => {
-  const { activeModal, setActiveModal, login, loginWithGoogle, setCurrentUser } = useApp();
+  const { activeModal, setActiveModal, login, loginWithGoogle, setCurrentUser, adminLogin, setActiveTab } = useApp();
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'phone'>('login');
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('+234 ');
+  const [authError, setAuthError] = useState<string | null>(null);
 
   if (activeModal !== 'auth') return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthError(null);
+
     if (authMode === 'phone') {
       if (!phone.trim()) return;
       setCurrentUser({
@@ -34,30 +37,40 @@ export const AuthModal: React.FC = () => {
         phone,
         role: 'customer',
       });
+      setActiveModal(null);
     } else if (authMode === 'signup') {
       if (!email.trim()) return;
       setCurrentUser({
         id: 'usr-' + Date.now(),
         name: name.trim() || email.split('@')[0],
-        email,
+        email: email.trim().toLowerCase(),
         phone: phone || '+234 812 345 6789',
         role: 'customer',
       });
+      setActiveModal(null);
     } else {
       // Login
-      const isAdmin = email.toLowerCase().includes('admin') || email.toLowerCase() === 'chrisaka141@gmail.com';
-      login(email || 'customer@surevolt.ng', isAdmin ? 'admin' : 'customer');
+      const cleanEmail = email.trim().toLowerCase();
+      if (cleanEmail === 'chrisaka141@gmail.com') {
+        const res = await adminLogin(cleanEmail, password);
+        if (!res.success) {
+          setAuthError(res.error || 'Incorrect owner password. Access denied.');
+          return;
+        }
+        setActiveTab('admin');
+        setActiveModal(null);
+        return;
+      }
+
+      // Regular client login
+      login(cleanEmail || 'customer@surevolt.ng', 'customer');
+      setActiveModal(null);
     }
-    setActiveModal(null);
   };
 
   const handleGoogleLogin = async () => {
+    setAuthError(null);
     await loginWithGoogle();
-    setActiveModal(null);
-  };
-
-  const handleAdminQuickLogin = () => {
-    login('chrisaka141@gmail.com', 'admin');
     setActiveModal(null);
   };
 
@@ -124,34 +137,11 @@ export const AuthModal: React.FC = () => {
         </div>
 
         <div className="p-6 space-y-4">
-          {/* Quick 1-Click Demo Profiles for Seamless Testing */}
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
-            <span className="text-[11px] uppercase font-bold text-amber-900 block">
-              ⚡ 1-Click Demo Login
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={handleGoogleLogin}
-                className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-lg text-xs font-semibold shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span>Customer (Chinedu)</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleAdminQuickLogin}
-                className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-amber-400 rounded-lg text-xs font-semibold shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span>Admin (Engr. Chris)</span>
-              </button>
+          {authError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold flex items-center gap-2">
+              <span>{authError}</span>
             </div>
-          </div>
-
-          <div className="relative flex py-1 items-center">
-            <div className="grow border-t border-slate-200"></div>
-            <span className="shrink mx-3 text-slate-400 text-xs uppercase font-medium">Or continue with</span>
-            <div className="grow border-t border-slate-200"></div>
-          </div>
+          )}
 
           {/* Social Google Login Button */}
           <button
@@ -268,9 +258,21 @@ export const AuthModal: React.FC = () => {
             </button>
           </form>
 
-          <p className="text-center text-[11px] text-slate-400">
-            Protected by Surevolt Privacy Policy & Zero Bad Record Guarantee.
-          </p>
+          <div className="pt-2 border-t border-slate-100 flex flex-col items-center gap-1.5 text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveModal(null);
+                setActiveTab('admin');
+              }}
+              className="text-[11px] text-amber-600 hover:text-amber-700 font-bold hover:underline cursor-pointer"
+            >
+              🔒 Web App Owner / Admin Portal Access
+            </button>
+            <p className="text-[11px] text-slate-400">
+              Protected by Surevolt Privacy Policy & Zero Bad Record Guarantee.
+            </p>
+          </div>
         </div>
       </div>
     </div>
