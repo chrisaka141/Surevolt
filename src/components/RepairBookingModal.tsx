@@ -17,6 +17,8 @@ import {
   Check,
   CheckCircle2,
   Info,
+  Lock,
+  ArrowRight,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { AudioVoiceRecorder } from './AudioVoiceRecorder';
@@ -32,6 +34,7 @@ export const RepairBookingModal: React.FC = () => {
     currentUser,
     selectedDepartmentFilter,
     setSelectedOrder,
+    addNotification,
   } = useApp();
 
   const pricing = settings.pricingConfig;
@@ -52,6 +55,27 @@ export const RepairBookingModal: React.FC = () => {
   const [customerEmail, setCustomerEmail] = useState(currentUser?.email || '');
   const [customerPhone, setCustomerPhone] = useState(currentUser?.phone || '+234 ');
   const [customerAddress, setCustomerAddress] = useState(currentUser?.address || '');
+
+  // Validation & Redirect State
+  const [errors, setErrors] = useState<{
+    name?: string;
+    phone?: string;
+    description?: string;
+    address?: string;
+  }>({});
+  const [isRedirectingToPayment, setIsRedirectingToPayment] = useState(false);
+
+  const handleQuickFillDemo = () => {
+    setCustomerName('Chinedu Okafor');
+    setCustomerPhone('+234 814 092 3141');
+    setCustomerEmail('chinedu.okafor@surevolt.ng');
+    setCustomerAddress('12 Umudike Expressway / Oyigbo Junction');
+    if (!issueDescription.trim()) {
+      setIssueDescription('Generator won\'t start in the morning and makes rattling sound when pulled.');
+    }
+    setErrors({});
+    addNotification('Sample Details Applied', 'Contact details filled for rapid testing.', 'info');
+  };
 
   // Pre-select department if set
   useEffect(() => {
@@ -113,21 +137,66 @@ export const RepairBookingModal: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!customerName.trim() || !customerPhone.trim() || !issueDescription.trim()) {
-      alert('Please fill in your name, phone number, and describe the equipment issue.');
+    const newErrors: {
+      name?: string;
+      phone?: string;
+      description?: string;
+      address?: string;
+    } = {};
+
+    if (!issueDescription.trim()) {
+      newErrors.description = 'Please describe the fault or symptoms of your equipment.';
+    }
+
+    if (!customerName.trim()) {
+      newErrors.name = 'Please provide your full name.';
+    }
+
+    const digitsOnly = customerPhone.replace(/\D/g, '');
+    if (!customerPhone.trim() || digitsOnly.length < 8) {
+      newErrors.phone = 'Please enter a valid phone number (e.g. 0814 092 3141).';
+    }
+
+    if (deliveryMode !== 'workshop_dropoff' && !customerAddress.trim()) {
+      newErrors.address = 'Please enter your address for pickup or technician visit.';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      addNotification(
+        'Required Fields Missing',
+        'Please complete the highlighted fields above to proceed to payment.',
+        'warning'
+      );
+      // Automatically scroll to the first input with error
+      const firstKey = Object.keys(newErrors)[0];
+      const targetElement = document.getElementById(`booking-field-${firstKey}`);
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        targetElement.focus();
+      }
       return;
     }
 
+    setErrors({});
+    setIsRedirectingToPayment(true);
+
+    const finalAddress =
+      customerAddress.trim() ||
+      (deliveryMode === 'workshop_dropoff'
+        ? 'Workshop Drop-off Hub: Central Umudike / Oyigbo Location'
+        : 'Address to be confirmed via telephone');
+
     const order = addOrder({
-      customerName,
-      customerEmail: customerEmail || 'customer@surevolt.ng',
-      customerPhone,
-      customerAddress: customerAddress || 'Workshop Dropoff / Pending Address',
+      customerName: customerName.trim(),
+      customerEmail: customerEmail.trim() || 'customer@surevolt.ng',
+      customerPhone: customerPhone.trim(),
+      customerAddress: finalAddress,
       department,
       equipmentModel: equipmentModel.trim() || undefined,
       issueCategory: analysis.category,
       autoCategorizationReason: analysis.reason,
-      issueDescription,
+      issueDescription: issueDescription.trim(),
       voiceNoteUrl: voiceNoteData,
       voiceNoteDuration,
       photos: photos.length > 0 ? photos : [
@@ -146,8 +215,18 @@ export const RepairBookingModal: React.FC = () => {
     setSelectedOrder(order);
 
     if (paymentOption === 'pay_online') {
-      setActiveModal('payment');
+      addNotification(
+        'Redirecting to Secure Payment',
+        `Order ${order.orderNumber} created! Opening secure payment channels...`,
+        'success'
+      );
+      // Seamlessly redirect to the Payment Modal
+      setTimeout(() => {
+        setIsRedirectingToPayment(false);
+        setActiveModal('payment');
+      }, 400);
     } else {
+      setIsRedirectingToPayment(false);
       setActiveModal('tracking');
     }
   };
@@ -178,7 +257,7 @@ export const RepairBookingModal: React.FC = () => {
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-800">
+        <form noValidate onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-800">
           {/* Step 1: Select Department */}
           <div>
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-2">
@@ -252,13 +331,26 @@ export const RepairBookingModal: React.FC = () => {
             </div>
 
             <textarea
+              id="booking-field-description"
               rows={3}
               value={issueDescription}
-              onChange={(e) => setIssueDescription(e.target.value)}
+              onChange={(e) => {
+                setIssueDescription(e.target.value);
+                if (errors.description) setErrors((prev) => ({ ...prev, description: undefined }));
+              }}
               placeholder="E.g., Generator is smoking heavy white smoke and leaking oil, or AC is blowing warm air, or sumo is humming but not pumping..."
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-              required
+              className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-hidden focus:ring-2 transition ${
+                errors.description
+                  ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/20'
+                  : 'border-slate-300 focus:ring-amber-500'
+              }`}
             />
+            {errors.description && (
+              <p className="text-xs font-bold text-red-600 flex items-center gap-1 mt-1">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{errors.description}</span>
+              </p>
+            )}
 
             {/* Audio Voice Note Recorder */}
             <AudioVoiceRecorder
@@ -402,47 +494,113 @@ export const RepairBookingModal: React.FC = () => {
           </div>
 
           {/* Step 5: Contact Details */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            <div>
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                Your Full Name *
+          <div className="space-y-3 pt-1">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                5. Customer Contact Details
               </label>
-              <input
-                type="text"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="e.g. Chinedu Okafor"
-                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-                required
-              />
+              <button
+                type="button"
+                onClick={handleQuickFillDemo}
+                className="text-xs font-bold text-amber-700 hover:text-amber-800 hover:underline flex items-center gap-1 cursor-pointer bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <span>Quick-Fill Sample Client</span>
+              </button>
             </div>
 
-            <div>
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                Phone Number (For SMS & Tracking) *
-              </label>
-              <input
-                type="tel"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-                placeholder="+234 801 234 5678"
-                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-                required
-              />
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                  Your Full Name *
+                </label>
+                <input
+                  id="booking-field-name"
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => {
+                    setCustomerName(e.target.value);
+                    if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
+                  }}
+                  placeholder="e.g. Chinedu Okafor"
+                  className={`w-full px-3.5 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-hidden focus:ring-2 transition ${
+                    errors.name
+                      ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/20'
+                      : 'border-slate-300 focus:ring-amber-500'
+                  }`}
+                />
+                {errors.name && (
+                  <p className="text-xs font-bold text-red-600 flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{errors.name}</span>
+                  </p>
+                )}
+              </div>
 
-            <div className="sm:col-span-2">
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                Pickup / Service Address (or Email) *
-              </label>
-              <input
-                type="text"
-                value={customerAddress}
-                onChange={(e) => setCustomerAddress(e.target.value)}
-                placeholder="Street address, Estate or Landmark (e.g. Umudike, Umuahia, Oyigbo, Port Harcourt)"
-                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-                required
-              />
+              <div>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                  Phone Number (For SMS & Tracking) *
+                </label>
+                <input
+                  id="booking-field-phone"
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(e) => {
+                    setCustomerPhone(e.target.value);
+                    if (errors.phone) setErrors((prev) => ({ ...prev, phone: undefined }));
+                  }}
+                  placeholder="+234 814 092 3141"
+                  className={`w-full px-3.5 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-hidden focus:ring-2 transition ${
+                    errors.phone
+                      ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/20'
+                      : 'border-slate-300 focus:ring-amber-500'
+                  }`}
+                />
+                {errors.phone && (
+                  <p className="text-xs font-bold text-red-600 flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{errors.phone}</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="sm:col-span-2">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                    Pickup / Service Address (or Email)
+                  </label>
+                  {deliveryMode === 'workshop_dropoff' && (
+                    <span className="text-[11px] text-emerald-700 font-semibold">
+                      Optional for Workshop Drop-off
+                    </span>
+                  )}
+                </div>
+                <input
+                  id="booking-field-address"
+                  type="text"
+                  value={customerAddress}
+                  onChange={(e) => {
+                    setCustomerAddress(e.target.value);
+                    if (errors.address) setErrors((prev) => ({ ...prev, address: undefined }));
+                  }}
+                  placeholder={
+                    deliveryMode === 'workshop_dropoff'
+                      ? 'Drop-off at Umudike or Oyigbo workshop hub'
+                      : 'Street address, Estate or Landmark (e.g. Umudike, Umuahia, Oyigbo, Port Harcourt)'
+                  }
+                  className={`w-full px-3.5 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-hidden focus:ring-2 transition ${
+                    errors.address
+                      ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/20'
+                      : 'border-slate-300 focus:ring-amber-500'
+                  }`}
+                />
+                {errors.address && (
+                  <p className="text-xs font-bold text-red-600 flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{errors.address}</span>
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -523,6 +681,30 @@ export const RepairBookingModal: React.FC = () => {
             </div>
           </div>
 
+          {/* Validation Alert Notice if Errors Exist */}
+          {Object.keys(errors).length > 0 && (
+            <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-900 text-xs flex items-start justify-between gap-3 animate-in fade-in">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block font-bold text-red-900">
+                    Required Information Needed
+                  </strong>
+                  <span className="text-red-700 block mt-0.5">
+                    Please provide your <strong>Name</strong>, <strong>Phone Number</strong>, and <strong>Issue Description</strong> above to proceed to payment.
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleQuickFillDemo}
+                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-xs shrink-0 cursor-pointer shadow-xs"
+              >
+                1-Tap Auto-Fill
+              </button>
+            </div>
+          )}
+
           {/* Submit Button */}
           <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-200">
             <button
@@ -535,14 +717,26 @@ export const RepairBookingModal: React.FC = () => {
 
             <button
               type="submit"
-              className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm rounded-xl shadow-lg shadow-amber-500/20 active:scale-95 transition cursor-pointer flex items-center gap-2"
+              disabled={isRedirectingToPayment}
+              className="px-6 py-3 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black text-sm rounded-xl shadow-lg shadow-amber-500/25 active:scale-95 transition cursor-pointer flex items-center gap-2 disabled:opacity-75 disabled:cursor-wait"
             >
-              <Check className="w-4 h-4 stroke-[3]" />
-              <span>
-                {paymentOption === 'pay_online'
-                  ? 'Proceed to Secure Payment'
-                  : 'Confirm Order & Track Status'}
-              </span>
+              {isRedirectingToPayment ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                  <span>Redirecting to Payment Gateway...</span>
+                </>
+              ) : paymentOption === 'pay_online' ? (
+                <>
+                  <Lock className="w-4 h-4 stroke-[2.5]" />
+                  <span>Proceed to Secure Payment</span>
+                  <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>Confirm Order & Track Status</span>
+                </>
+              )}
             </button>
           </div>
         </form>

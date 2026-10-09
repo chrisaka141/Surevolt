@@ -93,14 +93,24 @@ export const PaymentModal: React.FC = () => {
         </div>
 
         {/* Invoice Summary Banner */}
-        <div className="bg-amber-50 p-4 border-b border-amber-200 flex items-center justify-between">
+        <div className="bg-amber-50 p-4 border-b border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <span className="text-xs text-amber-800 font-medium block">{itemTitle}</span>
-            <span className="text-xs text-slate-500">Includes guaranteed 24-hr refund policy</span>
+            <span className="text-xs text-amber-900 font-bold block">{itemTitle}</span>
+            {selectedOrder && (
+              <div className="flex flex-wrap items-center gap-2 mt-0.5 text-[11px] text-slate-600">
+                <span>Client: <strong>{selectedOrder.customerName}</strong> ({selectedOrder.customerPhone})</span>
+                <span>•</span>
+                <span className="capitalize">{selectedOrder.deliveryMode.replace('_', ' ')}</span>
+              </div>
+            )}
+            <span className="text-[11px] text-emerald-700 font-medium mt-1 flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>Includes 100% 24-hr refund policy guarantee</span>
+            </span>
           </div>
-          <div className="text-right">
-            <span className="text-[11px] uppercase font-bold text-slate-500 block">Total Due</span>
-            <span className="text-xl font-black text-slate-900">
+          <div className="sm:text-right shrink-0">
+            <span className="text-[10px] uppercase font-bold text-slate-500 block">Total Net Due</span>
+            <span className="text-2xl font-black text-slate-950 font-mono">
               {formatNaira(amountToPay)}
             </span>
           </div>
@@ -260,7 +270,7 @@ export const PaymentModal: React.FC = () => {
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                 <span className="text-xs text-slate-500 block">Dial USSD string on your phone:</span>
                 <span className="text-xl font-mono font-black text-slate-900 bg-amber-100/70 px-3 py-1.5 rounded-lg inline-block">
-                  *737*2*15000*5401928371#
+                  *737*2*{amountToPay}*5401928371#
                 </span>
                 <span className="text-[11px] text-slate-500 block">GTBank, Zenith, Access, or UBA</span>
               </div>
@@ -272,6 +282,27 @@ export const PaymentModal: React.FC = () => {
                 className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm rounded-xl transition cursor-pointer"
               >
                 {isProcessing ? 'Waiting for USSD session...' : 'Confirm USSD Dialed'}
+              </button>
+            </div>
+          )}
+
+          {/* Switch to Pay on Arrival Option */}
+          {selectedOrder && (
+            <div className="pt-2 text-center border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  updateOrderPayment(selectedOrder.id, 'pay_on_arrival');
+                  addNotification(
+                    'Payment Mode Updated',
+                    `Order ${selectedOrder.orderNumber} set to Pay on Arrival / Inspection.`,
+                    'info'
+                  );
+                  setActiveModal('tracking');
+                }}
+                className="text-xs text-slate-500 hover:text-amber-700 font-semibold transition cursor-pointer underline hover:no-underline"
+              >
+                Prefer to pay upon delivery or workshop drop-off instead? Click here
               </button>
             </div>
           )}
