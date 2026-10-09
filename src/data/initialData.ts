@@ -17,6 +17,12 @@ export const initialBusinessSettings: BusinessSettings = {
   refundPolicyHours: 24,
   cancellationWindowHours: '6–12 hours',
   permittedAdmins: [],
+  bankDetails: {
+    bankName: 'Moniepoint MFB / Providus Bank',
+    accountNumber: '8140923141',
+    accountName: 'Surevolt Engineering Services',
+    paymentInstructions: 'Please include your Order Number as payment transfer narration, or send transaction screenshot to WhatsApp (+234 8140923141) for verification.',
+  },
   pricingConfig: {
     servicingMin: 8000,
     servicingMax: 15000,

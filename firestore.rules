@@ -49,7 +49,7 @@ service cloud.firestore {
         data.deliveryMode in ['home_service', 'pickup_return', 'workshop_dropoff'] &&
         data.status in ['request_received', 'picked_up', 'diagnostic', 'in_repair', 'quality_tested', 'ready_delivered'] &&
         data.totalAmount is number && data.totalAmount >= 0 &&
-        data.paymentStatus in ['unpaid', 'paid_online', 'pay_on_arrival'] &&
+        data.paymentStatus in ['unpaid', 'paid_online', 'pay_on_arrival', 'payment_pending_confirmation', 'paid_confirmed'] &&
         (!('issueDescription' in data) || (data.issueDescription is string && data.issueDescription.size() <= 2000));
     }
 
@@ -101,7 +101,12 @@ service cloud.firestore {
       allow get: if true;
       allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow create: if isValidOrder(incoming());
-      allow update: if isAdmin();
+      allow update: if isAdmin() || (
+        isValidOrder(incoming()) && (
+          // Customer can submit payment proof or update delivery/payment choice, but only admin can confirm paid
+          incoming().paymentStatus in ['unpaid', 'payment_pending_confirmation', 'pay_on_arrival']
+        )
+      );
       allow delete: if isAdmin();
     }
 

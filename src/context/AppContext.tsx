@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   BusinessSettings,
+  BankDetails,
+  BankTransferProof,
   EquipmentProduct,
   RepairOrder,
   SellRequest,
@@ -77,7 +79,11 @@ interface AppContextType {
   updateOrderStatus: (orderId: string, newStatus: OrderStatus, note?: string, updatedBy?: string) => void;
   updateOrderInspection: (orderId: string, inspectionNote: string, adjustmentAmount?: number, adjustmentReason?: string) => void;
   convertOrderToOverhaul: (orderId: string, newPrice: number, reason: string) => void;
-  updateOrderPayment: (orderId: string, paymentMethod: PaymentMethod, transactionRef?: string) => void;
+  updateOrderPayment: (orderId: string, paymentMethod: PaymentMethod, status?: PaymentStatus, transactionRef?: string) => Promise<void>;
+  submitBankPaymentProof: (orderId: string, proof: BankTransferProof) => Promise<void>;
+  confirmBankPayment: (orderId: string, transactionRef?: string) => Promise<void>;
+  rejectBankPayment: (orderId: string, reason?: string) => Promise<void>;
+  updateBankDetails: (bankDetails: BankDetails) => Promise<void>;
 
   // Sell Equipment Requests
   sellRequests: SellRequest[];
@@ -138,6 +144,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         if (!parsed.contactPhone || parsed.contactPhone.includes('883')) {
           parsed.contactPhone = '+234 8140923141';
+        }
+        if (!parsed.bankDetails) {
+          parsed.bankDetails = initialBusinessSettings.bankDetails;
         }
         return parsed;
       }
@@ -650,14 +659,123 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const updateOrderPayment = async (orderId: string, paymentMethod: PaymentMethod, transactionRef?: string) => {
-    const receiptNum = `RCP-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
-    const updates = {
-      paymentStatus: paymentMethod === 'pay_on_arrival' ? ('pay_on_arrival' as PaymentStatus) : ('paid_online' as PaymentStatus),
+  const updateOrderPayment = async (
+    orderId: string,
+    paymentMethod: PaymentMethod,
+    status: PaymentStatus = 'paid_confirmed',
+    transactionRef?: string
+  ) => {
+    const isPaid = status === 'paid_confirmed' || status === 'paid_online';
+    const receiptNum = isPaid ? `RCP-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}` : undefined;
+    const nowIso = new Date().toISOString();
+
+    const updates: Partial<RepairOrder> = {
+      paymentStatus: status,
       paymentMethod,
-      transactionRef: transactionRef || `REF-${Date.now().toString(36).toUpperCase()}`,
+      transactionRef: transactionRef || (isPaid ? `REF-${Date.now().toString(36).toUpperCase()}` : undefined),
       receiptNumber: receiptNum,
-      updatedAt: new Date().toISOString(),
+      paymentConfirmedAt: isPaid ? nowIso : undefined,
+      paymentConfirmedBy: isPaid ? 'Engr. Chris (Owner)' : undefined,
+      updatedAt: nowIso,
+    };
+
+    setOrders((prev) =>
+      prev.map((ord) => {
+        if (ord.id !== orderId) return ord;
+        const updated = { ...ord, ...updates };
+        if (isPaid) {
+          setCurrentReceipt(updated);
+        }
+        if (selectedOrder?.id === orderId) {
+          setSelectedOrder(updated);
+        }
+        return updated;
+      })
+    );
+
+    try {
+      await updateDoc(doc(db, 'orders', orderId), updates);
+      if (isPaid) {
+        addNotification('Payment Confirmed!', `Receipt ${receiptNum} issued and saved to cloud.`, 'success');
+      } else {
+        addNotification('Payment Preference Saved', `Order updated to ${status.replace('_', ' ')}.`, 'info');
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `orders/${orderId}`);
+    }
+  };
+
+  const submitBankPaymentProof = async (orderId: string, proof: BankTransferProof) => {
+    const targetOrder = orders.find((o) => o.id === orderId);
+    const nowStr = new Date().toISOString();
+    const timeFormatted = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const newTimeline = targetOrder ? [
+      ...targetOrder.trackingTimeline,
+      {
+        status: targetOrder.status,
+        label: 'Bank Transfer Proof Submitted',
+        timestamp: timeFormatted,
+        note: `Client submitted payment details (Bank: ${proof.senderBank || 'Bank Transfer'}, Name: ${proof.senderName || 'Client'}, Ref: ${proof.transferReference || 'N/A'}). Awaiting bank credit confirmation by Engr. Chris.`,
+        updatedBy: 'Client Portal',
+      },
+    ] : [];
+
+    const updates: Partial<RepairOrder> = {
+      paymentStatus: 'payment_pending_confirmation',
+      paymentMethod: 'bank_transfer',
+      paymentProof: proof,
+      trackingTimeline: newTimeline.length > 0 ? newTimeline : undefined,
+      updatedAt: nowStr,
+    };
+
+    setOrders((prev) =>
+      prev.map((ord) => {
+        if (ord.id !== orderId) return ord;
+        const updated = { ...ord, ...updates };
+        if (selectedOrder?.id === orderId) setSelectedOrder(updated);
+        return updated;
+      })
+    );
+
+    try {
+      await updateDoc(doc(db, 'orders', orderId), updates);
+      addNotification(
+        'Payment Proof Submitted',
+        'Transfer proof logged! As per policy, your order will be recognized as PAID once confirmed in our bank account.',
+        'info'
+      );
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `orders/${orderId}`);
+    }
+  };
+
+  const confirmBankPayment = async (orderId: string, transactionRef?: string) => {
+    const targetOrder = orders.find((o) => o.id === orderId);
+    const nowIso = new Date().toISOString();
+    const timeFormatted = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const receiptNum = `RCP-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+
+    const newTimeline = targetOrder ? [
+      ...targetOrder.trackingTimeline,
+      {
+        status: targetOrder.status,
+        label: 'Payment Verified & Confirmed in Bank',
+        timestamp: timeFormatted,
+        note: `Payment confirmed received in Surevolt bank account by Engr. Chris (Owner). Official receipt ${receiptNum} issued.`,
+        updatedBy: 'Engr. Chris (Owner)',
+      },
+    ] : [];
+
+    const updates: Partial<RepairOrder> = {
+      paymentStatus: 'paid_confirmed',
+      paymentMethod: 'bank_transfer',
+      transactionRef: transactionRef || targetOrder?.paymentProof?.transferReference || `TXN-${Date.now().toString(36).toUpperCase()}`,
+      receiptNumber: receiptNum,
+      paymentConfirmedAt: nowIso,
+      paymentConfirmedBy: 'Engr. Chris (Owner)',
+      trackingTimeline: newTimeline.length > 0 ? newTimeline : undefined,
+      updatedAt: nowIso,
     };
 
     setOrders((prev) =>
@@ -665,16 +783,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (ord.id !== orderId) return ord;
         const updated = { ...ord, ...updates };
         setCurrentReceipt(updated);
+        if (selectedOrder?.id === orderId) setSelectedOrder(updated);
         return updated;
       })
     );
 
     try {
       await updateDoc(doc(db, 'orders', orderId), updates);
-      addNotification('Payment Confirmed!', `Receipt ${receiptNum} issued and saved to Firebase.`, 'success');
+      addNotification(
+        'Payment Confirmed in Bank Account',
+        `Order ${targetOrder?.orderNumber || orderId} confirmed as PAID in bank account!`,
+        'success'
+      );
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `orders/${orderId}`);
     }
+  };
+
+  const rejectBankPayment = async (orderId: string, reason = 'Payment not credited to bank account') => {
+    const targetOrder = orders.find((o) => o.id === orderId);
+    const nowIso = new Date().toISOString();
+    const timeFormatted = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const newTimeline = targetOrder ? [
+      ...targetOrder.trackingTimeline,
+      {
+        status: targetOrder.status,
+        label: 'Payment Verification Rejected',
+        timestamp: timeFormatted,
+        note: `Verification note: ${reason}. Order marked as Unpaid pending genuine bank credit.`,
+        updatedBy: 'Engr. Chris (Owner)',
+      },
+    ] : [];
+
+    const updates: Partial<RepairOrder> = {
+      paymentStatus: 'unpaid',
+      trackingTimeline: newTimeline.length > 0 ? newTimeline : undefined,
+      updatedAt: nowIso,
+    };
+
+    setOrders((prev) =>
+      prev.map((ord) => {
+        if (ord.id !== orderId) return ord;
+        const updated = { ...ord, ...updates };
+        if (selectedOrder?.id === orderId) setSelectedOrder(updated);
+        return updated;
+      })
+    );
+
+    try {
+      await updateDoc(doc(db, 'orders', orderId), updates);
+      addNotification('Payment Rejected', `Order marked as Unpaid: ${reason}`, 'warning');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `orders/${orderId}`);
+    }
+  };
+
+  const updateBankDetails = async (bankDetails: BankDetails) => {
+    await updateSettings({ bankDetails });
   };
 
   // Sell Requests Helpers
@@ -1000,6 +1166,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateOrderInspection,
         convertOrderToOverhaul,
         updateOrderPayment,
+        submitBankPaymentProof,
+        confirmBankPayment,
+        rejectBankPayment,
+        updateBankDetails,
         sellRequests,
         addSellRequest,
         updateSellRequest,

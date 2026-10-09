@@ -12,9 +12,29 @@ export type OrderStatus =
   | 'quality_tested'
   | 'ready_delivered';
 
-export type PaymentStatus = 'unpaid' | 'paid_online' | 'pay_on_arrival';
+export type PaymentStatus =
+  | 'unpaid'
+  | 'payment_pending_confirmation'
+  | 'paid_confirmed'
+  | 'paid_online'
+  | 'pay_on_arrival';
 
 export type PaymentMethod = 'card' | 'bank_transfer' | 'ussd' | 'pay_on_arrival';
+
+export interface BankTransferProof {
+  senderBank?: string;
+  senderName?: string;
+  transferReference?: string;
+  proofImageUrl?: string;
+  submittedAt: string;
+}
+
+export interface BankDetails {
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  paymentInstructions?: string;
+}
 
 export interface TimelineEvent {
   status: OrderStatus;
@@ -50,6 +70,9 @@ export interface RepairOrder {
   totalAmount: number;
   paymentStatus: PaymentStatus;
   paymentMethod?: PaymentMethod;
+  paymentProof?: BankTransferProof;
+  paymentConfirmedAt?: string;
+  paymentConfirmedBy?: string;
   transactionRef?: string;
   receiptNumber?: string;
   inspectionNote?: string;
@@ -135,6 +158,7 @@ export interface BusinessSettings {
   refundPolicyHours: number; // 24
   cancellationWindowHours: string; // "6–12 hours"
   permittedAdmins?: string[];
+  bankDetails?: BankDetails;
 }
 
 export interface UserProfile {
